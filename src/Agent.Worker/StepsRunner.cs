@@ -5,13 +5,13 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Expressions = Microsoft.TeamFoundation.DistributedTask.Orchestration.Server.Expressions;
+using Microsoft.TeamFoundation.DistributedTask.Expressions;
 
 namespace Microsoft.VisualStudio.Services.Agent.Worker
 {
     public interface IStep
     {
-        Expressions.INode Condition { get; set; }
+        IExpressionNode Condition { get; set; }
         bool ContinueOnError { get; }
         string DisplayName { get; }
         bool Enabled { get; }
@@ -72,11 +72,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                             jobContext.Variables.Agent_JobStatus = jobContext.Result;
 
                             step.ExecutionContext.Debug($"Re-evaluate condition on job cancellation for step: '{step.DisplayName}'.");
-                            bool conditionReTestResult;
+                            ConditionResult conditionReTestResult;
                             if (HostContext.AgentShutdownToken.IsCancellationRequested)
                             {
                                 step.ExecutionContext.Debug($"Skip Re-evaluate condition on agent shutdown.");
-                                conditionReTestResult = false;
+                                conditionReTestResult = new ConditionResult(false);
                             }
                             else
                             {
@@ -89,11 +89,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                                     // Cancel the step since we get exception while re-evaluate step condition.
                                     Trace.Info("Caught exception from expression when re-test condition on job cancellation.");
                                     step.ExecutionContext.Error(ex);
-                                    conditionReTestResult = false;
+                                    conditionReTestResult = new ConditionResult(false, ex.Message);
                                 }
                             }
 
-                            if (!conditionReTestResult)
+                            if (!conditionReTestResult.Value)
                             {
                                 // Cancel the step.
                                 Trace.Info("Cancel current running step.");
@@ -114,11 +114,11 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                     // Evaluate condition.
                     step.ExecutionContext.Debug($"Evaluating condition for step: '{step.DisplayName}'");
                     Exception conditionEvaluateError = null;
-                    bool conditionResult;
+                    ConditionResult conditionResult;
                     if (HostContext.AgentShutdownToken.IsCancellationRequested)
                     {
                         step.ExecutionContext.Debug($"Skip evaluate condition on agent shutdown.");
-                        conditionResult = false;
+                        conditionResult = new ConditionResult(false, "Agent shutdown");
                     }
                     else
                     {
@@ -130,17 +130,17 @@ namespace Microsoft.VisualStudio.Services.Agent.Worker
                         {
                             Trace.Info("Caught exception from expression.");
                             Trace.Error(ex);
-                            conditionResult = false;
+                            conditionResult = new ConditionResult(false, ex.Message);
                             conditionEvaluateError = ex;
                         }
                     }
 
                     // no evaluate error but condition is false
-                    if (!conditionResult && conditionEvaluateError == null)
+                    if (!conditionResult.Value && conditionEvaluateError == null)
                     {
                         // Condition == false
                         Trace.Info("Skipping step due to condition evaluation.");
-                        step.ExecutionContext.Complete(TaskResult.Skipped);
+                        step.ExecutionContext.Complete(TaskResult.Skipped, resultCode: conditionResult.Trace);
                         continue;
                     }
 
