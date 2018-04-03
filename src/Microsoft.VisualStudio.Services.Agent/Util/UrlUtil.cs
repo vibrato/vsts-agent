@@ -10,7 +10,10 @@ namespace Microsoft.VisualStudio.Services.Agent.Util
                 || serverUrl.IndexOf(".tfsallin.net", StringComparison.OrdinalIgnoreCase) != -1
                 || serverUrl.IndexOf(".vsts.me", StringComparison.OrdinalIgnoreCase) != -1
                 || serverUrl.IndexOf(".vsallin.net", StringComparison.OrdinalIgnoreCase) != -1
-                || serverUrl.IndexOf(".vsts.io", StringComparison.OrdinalIgnoreCase) != -1;
+                || serverUrl.IndexOf(".vsts.io", StringComparison.OrdinalIgnoreCase) != -1
+                || new Uri(serverUrl.ToLowerInvariant()).Host.EndsWith("ex.ms")
+                || new Uri(serverUrl.ToLowerInvariant()).Host.EndsWith("dev.ms")
+                || new Uri(serverUrl.ToLowerInvariant()).Host.EndsWith("app.ms");
         }
 
         public static Uri GetCredentialEmbeddedUrl(Uri baseUrl, string username, string password)
